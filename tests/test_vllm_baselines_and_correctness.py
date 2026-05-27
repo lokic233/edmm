@@ -132,13 +132,13 @@ def run():
         + base_h1
         + base_h2
         + suffix,
-        "B4_edmm_spec": None,
+        "B4_oracle": None,
     }
 
     results = {}
 
     for layout_name, prompt_fn in layouts.items():
-        if layout_name == "B4_edmm_spec":
+        if layout_name == "B4_oracle":
             continue
 
         ttfts = []
@@ -178,9 +178,9 @@ def run():
         ttfts_b4.append(ms)
 
     mu_b4 = sum(ttfts_b4) / len(ttfts_b4)
-    results["B4_edmm_spec"] = (mu_b4, ttfts_b4)
+    results["B4_oracle"] = (mu_b4, ttfts_b4)
     print(
-        f"  B4_edmm_spec: {mu_b4:.1f}ms  (trials: {', '.join(f'{t:.0f}' for t in ttfts_b4)})"
+        f"  B4_oracle: {mu_b4:.1f}ms  (trials: {', '.join(f'{t:.0f}' for t in ttfts_b4)})"
     )
 
     # Also measure clean cache hit as reference
@@ -201,7 +201,7 @@ def run():
     print(f"  | Cache Hit (ref)| {mu_ref:14.1f} | 1.00x        | —         |")
 
     mu_b2 = results["B2_midprompt"][0]
-    for name in ["B1_appended", "B2_midprompt", "B3_reordered", "B4_edmm_spec"]:
+    for name in ["B1_appended", "B2_midprompt", "B3_reordered", "B4_oracle"]:
         mu = results[name][0]
         vs_ref = mu / mu_ref if mu_ref > 0 else 0
         vs_b2 = mu / mu_b2 if mu_b2 > 0 else 0
@@ -211,7 +211,7 @@ def run():
     # Key assertions
     b1_mu = results["B1_appended"][0]
     b2_mu = results["B2_midprompt"][0]
-    b4_mu = results["B4_edmm_spec"][0]
+    b4_mu = results["B4_oracle"][0]
 
     print(f"\n  Key findings:")
     print(f"    B2 (mid-prompt) penalty vs cache hit: {b2_mu/mu_ref:.2f}x")
@@ -234,7 +234,9 @@ def run():
     print(f"  P1.1 Layout sweep: Complete")
     print(f"    Best non-EDMM:   B1 (appended) = {b1_mu:.1f}ms")
     print(f"    Worst case:      B2 (mid-prompt) = {b2_mu:.1f}ms")
-    print(f"    EDMM recovery:   B4 = {b4_mu:.1f}ms ({b4_mu/mu_ref:.2f}x vs cache hit)")
+    print(
+        f"    Oracle upper bound:   B4 = {b4_mu:.1f}ms ({b4_mu/mu_ref:.2f}x vs cache hit)"
+    )
     print(f"{'='*70}\n")
 
 

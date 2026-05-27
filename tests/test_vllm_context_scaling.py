@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-EDMM P1.3: Context-Length Scaling Sweep with Hash-Injection B4
+EDMM P1.3: Context-Length Scaling Sweep with Hash-Injection B4_oracle
 
 Measures TTFT across 4 context scales through the live vLLM engine.
 
 Three groups per scale:
   C0: Clean prefix cache hit
   B2: Mid-prompt contamination (cold miss, unique UUID)
-  B4: EDMM — warm base prefix, then inject contaminated block hashes
+  B4_oracle: EDMM — warm base prefix, then inject contaminated block hashes
       directly into vLLM's _cached_blocks registry + remap physical pages,
       so the engine sees a cache hit for the contaminated prompt
 
@@ -83,7 +83,7 @@ def inject_hashes_into_cache(llm, target_hashes, source_block_ids):
 
 def run():
     print(f"\n{'='*70}")
-    print("EDMM P1.3: Context-Length Scaling (Hash-Injection B4)")
+    print("EDMM P1.3: Context-Length Scaling (Hash-Injection B4_oracle)")
     print(f"Model: {MODEL}")
     print(f"Scales: {SCALES}")
     print(f"{'='*70}\n")
@@ -136,7 +136,7 @@ def run():
             llm.generate([contaminated], sp)
             ttft_b2.append((time.perf_counter() - t0) * 1000)
 
-        # B4: EDMM hash-injection
+        # B4_oracle: EDMM hash-injection
         # Step 1: warm the base prefix
         # Step 2: compute hashes for the contaminated prompt
         # Step 3: inject those hashes pointing to the base prefix's block IDs
@@ -177,7 +177,7 @@ def run():
         mu_b2 = sum(ttft_b2) / len(ttft_b2)
         mu_b4 = sum(ttft_b4) / len(ttft_b4)
 
-        all_results[scale] = {"C0": mu_c0, "B2": mu_b2, "B4": mu_b4}
+        all_results[scale] = {"C0": mu_c0, "B2": mu_b2, "B4_oracle": mu_b4}
 
         print(
             f"  C0 (cache hit):  {mu_c0:7.1f}ms  ({', '.join(f'{x:.0f}' for x in ttft_c0)})"
@@ -186,19 +186,19 @@ def run():
             f"  B2 (mid-prompt): {mu_b2:7.1f}ms  ({', '.join(f'{x:.0f}' for x in ttft_b2)})"
         )
         print(
-            f"  B4 (EDMM hash):  {mu_b4:7.1f}ms  ({', '.join(f'{x:.0f}' for x in ttft_b4)})"
+            f"  B4_oracle (EDMM hash):  {mu_b4:7.1f}ms  ({', '.join(f'{x:.0f}' for x in ttft_b4)})"
         )
         print(
-            f"  B2/C0={mu_b2/mu_c0:.2f}x  B4/C0={mu_b4/mu_c0:.2f}x  B2/B4={mu_b2/mu_b4:.2f}x"
+            f"  B2/C0={mu_b2/mu_c0:.2f}x  B4_oracle/C0={mu_b4/mu_c0:.2f}x  B2/B4_oracle={mu_b2/mu_b4:.2f}x"
         )
 
     # Summary
     print(f"\n{'='*70}")
-    print("CONTEXT-LENGTH SCALING RESULTS (Hash-Injection B4)")
+    print("CONTEXT-LENGTH SCALING RESULTS (Hash-Injection B4_oracle)")
     print(f"{'='*70}\n")
 
     print(
-        "| Context | C0 Hit (ms) | B2 Miss (ms) | B4 EDMM (ms) | B2/C0  | B4/C0  | B2/B4 Speedup |"
+        "| Context | C0 Hit (ms) | B2 Miss (ms) | B4_oracle Oracle Context-Aliasing (ms) | B2/C0  | B4_oracle/C0  | B2/B4_oracle Speedup |"
     )
     print(
         "|---------|-------------|--------------|--------------|--------|--------|---------------|"
@@ -206,15 +206,15 @@ def run():
     for scale in SCALES:
         r = all_results[scale]
         print(
-            f"| {scale:>7} | {r['C0']:11.1f} | {r['B2']:12.1f} | {r['B4']:12.1f} | "
-            f"{r['B2']/r['C0']:6.2f}x | {r['B4']/r['C0']:6.2f}x | "
-            f"{r['B2']/r['B4']:13.2f}x |"
+            f"| {scale:>7} | {r['C0']:11.1f} | {r['B2']:12.1f} | {r['B4_oracle']:12.1f} | "
+            f"{r['B2']/r['C0']:6.2f}x | {r['B4_oracle']/r['C0']:6.2f}x | "
+            f"{r['B2']/r['B4_oracle']:13.2f}x |"
         )
 
     if len(SCALES) >= 2:
         r_s, r_l = all_results[SCALES[0]], all_results[SCALES[-1]]
-        print(f"\n  At {SCALES[0]}: B2/B4 = {r_s['B2']/r_s['B4']:.2f}x")
-        print(f"  At {SCALES[-1]}: B2/B4 = {r_l['B2']/r_l['B4']:.2f}x")
+        print(f"\n  At {SCALES[0]}: B2/B4_oracle = {r_s['B2']/r_s['B4_oracle']:.2f}x")
+        print(f"  At {SCALES[-1]}: B2/B4_oracle = {r_l['B2']/r_l['B4_oracle']:.2f}x")
 
     print(f"{'='*70}\n")
 
