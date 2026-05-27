@@ -215,6 +215,43 @@ def get_vmm_allocation(tensor: torch.Tensor) -> Optional[VMMAllocation]:
     return _allocations.get(tensor.data_ptr())
 
 
+def verify_edmm_tensor_integrity(
+    layer_id: str,
+    kv_tensor: torch.Tensor,
+    expected_shape: tuple,
+    dtype: torch.dtype = torch.int8,
+) -> bool:
+    """P0.1: Runtime assertion that a KV cache tensor is truly VMM-backed.
+
+    Asserts that data_ptr matches the VMM VA and logs structured metrics.
+    Call this from the KV cache allocation hook when VLLM_EDMM_ENABLE=1.
+    """
+    alloc = get_vmm_allocation(kv_tensor)
+
+    assert alloc is not None, (
+        f"[EDMM INTEGRITY FAIL] layer={layer_id}: tensor at 0x{kv_tensor.data_ptr():x} "
+        f"is NOT VMM-backed — possible implicit copy or fallback allocation"
+    )
+    assert kv_tensor.data_ptr() == alloc.va_ptr, (
+        f"[EDMM INTEGRITY FAIL] layer={layer_id}: data_ptr 0x{kv_tensor.data_ptr():x} "
+        f"!= VMM VA 0x{alloc.va_ptr:x} — framework performed an implicit copy"
+    )
+
+    logger.info(
+        "EDMM_VERIFY: layer=%s shape=%s data_ptr=0x%x edmm_va=0x%x "
+        "pages=%d page_size=%dMB dtype=%s device=%s status=OK",
+        layer_id,
+        tuple(kv_tensor.shape) if kv_tensor.dim() > 0 else (kv_tensor.numel(),),
+        kv_tensor.data_ptr(),
+        alloc.va_ptr,
+        alloc.num_pages,
+        alloc.page_size // (1024 * 1024),
+        kv_tensor.dtype,
+        kv_tensor.device,
+    )
+    return True
+
+
 _remap_lock = __import__("threading").Lock()
 
 
